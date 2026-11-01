@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f3864">
+<title>Mookiland Staff</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="config.js"></script>
+<style>
+  :root { --navy:#1f3864; --blue:#2f5597; --bg:#f4f6fa; --line:#dfe4ec; --ok:#1e7b34; --err:#c00000; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:var(--bg); color:#1d1d1f; font-size:16px; }
+  header { background:var(--navy); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:5; display:flex; justify-content:space-between; align-items:center; }
+  header h1 { font-size:17px; margin:0; font-weight:600; }
+  header button { background:transparent; border:1px solid rgba(255,255,255,.5); color:#fff; border-radius:6px; padding:5px 10px; font-size:13px; }
+  main { max-width:620px; margin:0 auto; padding:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:12px; }
+  label { display:block; font-size:13px; color:#555; margin:10px 0 4px; }
+  input, select { width:100%; padding:11px 12px; border:1px solid #c9d1dd; border-radius:8px; font-size:16px; background:#fff; }
+  input[type=number] { text-align:right; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .seg { display:flex; gap:6px; flex-wrap:wrap; }
+  .seg button { flex:1; padding:11px 8px; border:1px solid #c9d1dd; background:#fff; border-radius:8px; font-size:15px; }
+  .seg button.on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .big { width:100%; padding:14px; background:var(--navy); color:#fff; border:0; border-radius:10px; font-size:17px; font-weight:600; margin-top:6px; }
+  .big:disabled { opacity:.5; }
+  .roles { display:grid; gap:10px; }
+  .roles button { padding:18px; font-size:17px; border-radius:10px; border:1px solid var(--line); background:#fff; text-align:left; }
+  .roles small { display:block; color:#777; font-size:13px; margin-top:3px; }
+  table { width:100%; border-collapse:collapse; }
+  th { font-size:12px; color:#666; text-align:right; font-weight:600; padding:6px 4px; border-bottom:1px solid var(--line); }
+  th:first-child { text-align:left; }
+  td { padding:5px 4px; border-bottom:1px solid #eef1f5; font-size:14px; }
+  td input { padding:9px 8px; font-size:16px; }
+  td.item { width:44%; }
+  #bItems td:nth-child(2), #bItems td:nth-child(3) { width:21%; }
+  td.tot { text-align:right; color:#555; width:14%; font-variant-numeric:tabular-nums; }
+  .msg { padding:12px; border-radius:8px; margin-bottom:12px; white-space:pre-line; }
+  .msg.ok { background:#e6f4ea; color:var(--ok); }
+  .msg.err { background:#fde9e7; color:var(--err); }
+  .sum { display:flex; justify-content:space-between; padding:6px 0; font-size:15px; }
+  .sum b { font-variant-numeric:tabular-nums; }
+  .hint { font-size:12px; color:#777; margin-top:4px; }
+  .hidden { display:none; }
+  .filled { background:#f0f6ff; }
+  details summary { cursor:pointer; color:var(--blue); font-size:14px; padding:4px 0; }
+  tr.chk td { padding:2px 4px 8px; border-bottom:1px solid #eef1f5; font-size:13px; }
+  tr.chk.error td { color:#8a5a00; }
+  tr.chk.hilang td { color:#c00000; }
+  tr.has-error td.item { border-left:4px solid #e0a800; padding-left:6px; }
+  tr.has-hilang td.item { border-left:4px solid #c00000; padding-left:6px; }
+  tr.has-error input { background:#fff8e1; }
+  tr.has-hilang input:disabled { background:#fde9e7; color:#c00000; }
+  tr.chk input { margin-top:4px; font-size:14px; padding:8px; }
+  .sum-box { padding:12px; border-radius:10px; margin-bottom:12px; font-size:15px; }
+  .sum-ok { background:#e6f4ea; color:#1e7b34; } .sum-warn { background:#fff8e1; color:#8a5a00; } .sum-bad { background:#fde9e7; color:#c00000; } .sum-info { background:#eef3fa; color:#2f5597; }
+  input:disabled { background:#f2f2f2; color:#666; }
+  body.zoomed main { max-width:none; }
+</style>
+</head>
+<body>
+<header><h1 id="title">Daily Report</h1><button id="logout" class="hidden" onclick="logout()">Keluar</button></header>
+<main>
+  <div id="msg"></div>
+
+  <!-- Login -->
+  <section id="login">
+    <div class="card">
+      <div class="roles" id="rolePick">
+        <button onclick="pickRole('barista')">☕ Barista<small>Input bar stock (hand count AM / PM, reject, purchasing)</small></button>
+        <button onclick="pickRole('cashier')">💵 Kasir<small>Input hitungan uang cash per POS</small></button>
+      </div>
+      <div id="pinBox" class="hidden">
+        <label id="pinLabel">PIN</label>
+        <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Masukkan PIN">
+        <button class="big" onclick="login()">Masuk</button>
+        <p class="hint"><a href="#" onclick="resetRole();return false">← Ganti peran</a></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Barista -->
+  <section id="barista" class="hidden">
+    <div class="card">
+      <div class="row2">
+        <div><label>Tanggal</label><input id="bDate" type="date" onchange="loadBar()"></div>
+        <div><label>Nama barista</label><input id="bName" placeholder="Nama"></div>
+      </div>
+      <label>Jenis input</label>
+      <div class="seg" id="bStatus">
+        <button data-v="Stock" class="on">Hand Count</button><button data-v="Reject">Reject</button><button data-v="Purchasing">Purchasing</button>
+      </div>
+      <div id="shiftBox">
+        <label>Shift</label>
+        <div class="seg" id="bShift"><button data-v="AM" class="on">AM (pagi)</button><button data-v="PM">PM (tutup)</button></div>
+      </div>
+    </div>
+    <div id="bSummary"></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Item</th><th id="hBar">Bar</th><th id="hGd">Gudang</th><th id="hTot">Total</th></tr></thead>
+        <tbody id="bItems"></tbody>
+      </table>
+      <p class="hint" id="bHint">Isi jumlah di Bar dan di Gudang.</p>
+    </div>
+    <div class="card hidden" id="bReasonBox">
+      <label><b>Alasan koreksi</b> (wajib kalau mengubah angka yang sudah tersimpan)</label>
+      <input id="bReason" placeholder="mis. salah hitung rak bawah, salah ketik">
+    </div>
+    <button class="big" id="bSave" onclick="saveBar()">Simpan Bar Stock</button>
+    <button class="big hidden" id="bNoteSave" style="background:#c00000" onclick="saveNotes()">Simpan Keterangan Stok Hilang</button>
+    <div class="card" style="margin-top:12px">
+      <p class="hint" style="margin:0">
+        <b style="color:#b7791f">Kuning = kesalahan input</b>: stok lebih banyak dari yang mungkin. Silakan cek lagi lalu koreksi (isi alasan).<br>
+        <b style="color:#c00000">Merah = stok hilang</b>: hitungan lebih sedikit dari seharusnya. Angka <u>tidak bisa diubah</u>, hanya bisa diberi keterangan.<br>
+        Hitungan PM dicek lengkap setelah data penjualan Raptor tanggal itu diimport.
+      </p>
+    </div>
+  </section>
+
+  <!-- Kasir -->
+  <section id="cashier" class="hidden">
+    <div class="card">
+      <div class="row2">
+        <div><label>Tanggal</label><input id="cDate" type="date"></div>
+        <div><label>Nama kasir</label><select id="cName"></select></div>
+      </div>
+      <label>POS</label>
+      <div class="seg" id="cPos"><button data-v="Ticketing">Ticketing</button><button data-v="Restaurant">Restaurant</button></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr><th>Pecahan</th><th>Jumlah lembar/koin</th><th>Nilai</th></tr></thead>
+        <tbody id="cDenoms"></tbody>
+      </table>
+      <div class="sum"><span>Total uang di laci</span><b id="cGross">0</b></div>
+      <div class="sum"><span>Modal kasir</span><b id="cFloat">0</b></div>
+      <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span><b>Cash On Hand</b></span><b id="cCoh">0</b></div>
+    </div>
+    <div class="card">
+      <details>
+        <summary>Penyesuaian (opsional) — uang yang tidak ada di laci</summary>
+        <p class="hint">Isi angka positif. Contoh: transaksi tercatat CASH di Raptor tapi tamu bayar QRIS.</p>
+        <div class="row2">
+          <div><label>Komisi driver dibayar</label><input id="cDriver" type="number" inputmode="numeric" min="0"></div>
+          <div><label>Tercatat cash, dibayar QRIS</label><input id="cQris" type="number" inputmode="numeric" min="0"></div>
+          <div><label>Tercatat cash, dibayar CARD</label><input id="cCard" type="number" inputmode="numeric" min="0"></div>
+          <div><label>Nota / pengeluaran</label><input id="cNota" type="number" inputmode="numeric" min="0"></div>
+          <div><label>Refund</label><input id="cRefund" type="number" inputmode="numeric" min="0"></div>
+          <div><label>Lainnya</label><input id="cOther" type="number" inputmode="numeric" min="0"></div>
+        </div>
+        <label>Catatan</label><input id="cNote" placeholder="Keterangan penyesuaian">
+      </details>
+    </div>
+    <button class="big" id="cSave" onclick="saveCash()">Simpan Cash Count</button>
+  </section>
+</main>
+
+<script>
+  var ROLE = (new URLSearchParams(location.search).get('role') || '');
+  // Google Sites mengecilkan embed di HP (iframe lebar desktop yang di-scale). Kompensasi dengan zoom
+  // supaya tulisan & tombol tetap besar: rasio = lebar iframe / lebar layar HP.
+  (function fitPhone() {
+    function apply() {
+      var sw = (window.screen && screen.width) || window.innerWidth;
+      var r = window.innerWidth / sw;
+      var z = r > 1.2 ? Math.min(r, 4) : 1;
+      document.body.style.zoom = z;
+      document.body.classList.toggle('zoomed', z > 1);
+    }
+    apply();
+    window.addEventListener('resize', apply);
+  })();
+  var S = { role: '', pin: '', boot: null };
+  function $(id) { return document.getElementById(id); }
+  function show(id, on) { $(id).classList.toggle('hidden', !on); }
+  function fmt(n) { return 'Rp ' + Math.round(n || 0).toLocaleString('id-ID'); }
+  function msg(text, ok) { $('msg').innerHTML = text ? '<div class="msg ' + (ok ? 'ok' : 'err') + '">' + text.replace(/</g, '&lt;') + '</div>' : ''; if (text) window.scrollTo(0, 0); }
+  function seg(id, onChange) {
+    $(id).addEventListener('click', function (e) {
+      if (e.target.tagName !== 'BUTTON') return;
+      [].forEach.call($(id).children, function (b) { b.classList.toggle('on', b === e.target); });
+      if (onChange) onChange(e.target.dataset.v);
+    });
+  }
+  function segVal(id) { var b = $(id).querySelector('.on'); return b ? b.dataset.v : ''; }
+  // Di dalam Apps Script pakai google.script.run; di halaman luar (GitHub Pages) pakai fetch ke API_URL (doPost).
+  function call(fn) {
+    var args = [].slice.call(arguments, 1);
+    if (window.google && google.script && google.script.run) {
+      return new Promise(function (res, rej) {
+        var r = google.script.run.withSuccessHandler(res).withFailureHandler(function (e) { rej(e && e.message ? e.message : String(e)); });
+        r[fn].apply(r, args);
+      });
+    }
+    return fetch(window.API_URL, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ fn: fn, args: args }) })
+      .then(function (r) { return r.json(); }, function () { throw 'Tidak bisa terhubung. Cek koneksi internet lalu coba lagi.'; })
+      .then(function (j) { if (!j.ok) throw j.error; return j.result; });
+  }
+
+  // ---- login ----
+  function pickRole(r) { S.role = r; show('rolePick', false); show('pinBox', true); $('pinLabel').textContent = 'PIN ' + (r === 'barista' ? 'Barista' : 'Kasir'); $('pin').focus(); }
+  function resetRole() { S.role = ''; show('rolePick', true); show('pinBox', false); }
+  $('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+  function login() {
+    msg('');
+    var pin = $('pin').value;
+    call('apiLogin', S.role, pin).then(function (b) {
+      S.pin = pin; S.boot = b;
+      try { sessionStorage.setItem('dr_auth', JSON.stringify({ role: S.role, pin: pin })); } catch (e) {}
+      start();
+    }).catch(function (e) { msg(e); });
+  }
+  function logout() { try { sessionStorage.removeItem('dr_auth'); } catch (e) {} location.reload(); }
+  function start() {
+    show('login', false); show('logout', true);
+    $('title').textContent = S.boot.title + (S.role === 'barista' ? ' · Barista' : ' · Kasir');
+    if (S.role === 'barista') initBarista(); else initCashier();
+  }
+
+  // ---- barista ----
+  var BR = null; // hasil review terakhir dari server
+  function esc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function nk(t) { return String(t).trim().toLowerCase(); }
+  function initBarista() {
+    show('barista', true);
+    $('bDate').value = S.boot.today;
+    try { $('bName').value = localStorage.getItem('dr_bname') || ''; } catch (e) {}
+    if (new Date().getHours() >= 15) $('bShift').children[1].click(); // sore/malam: default PM
+    $('bItems').innerHTML = S.boot.items.map(function (it, i) {
+      return '<tr id="r' + i + '"><td class="item">' + esc(it) + '</td>' +
+        '<td><input type="number" inputmode="numeric" min="0" step="1" data-i="' + i + '" data-f="bar"></td>' +
+        '<td class="gd"><input type="number" inputmode="numeric" min="0" step="1" data-i="' + i + '" data-f="gudang"></td>' +
+        '<td class="tot" id="t' + i + '"></td></tr>' +
+        '<tr class="chk hidden" id="c' + i + '"><td colspan="4"><div id="cm' + i + '"></div>' +
+        '<input class="hidden" id="n' + i + '" placeholder="Keterangan: kenapa stok hilang?"></td></tr>';
+    }).join('');
+    $('bItems').addEventListener('input', function (e) { var i = e.target.dataset.i; if (i != null) { updTot(i); updReason(); } });
+    loadBar();
+  }
+  seg('bStatus', function (v) {
+    var stock = v === 'Stock';
+    show('shiftBox', stock);
+    $('hBar').textContent = stock ? 'Bar' : 'Qty'; $('hGd').textContent = stock ? 'Gudang' : ''; $('hTot').textContent = stock ? 'Total' : '';
+    [].forEach.call(document.querySelectorAll('td.gd, td.tot'), function (td) { td.style.visibility = stock ? 'visible' : 'hidden'; });
+    $('bHint').textContent = stock ? 'Isi jumlah di Bar dan di Gudang.' : 'Isi jumlah ' + (v === 'Reject' ? 'barang reject/rusak' : 'barang yang dibeli/masuk') + ' hari ini.';
+    loadBar();
+  });
+  seg('bShift', function () { loadBar(); });
+  function inp(i, f) { return document.querySelector('input[data-i="' + i + '"][data-f="' + f + '"]'); }
+  function updTot(i) {
+    var a = inp(i, 'bar').value, b = inp(i, 'gudang').value;
+    $('t' + i).textContent = (a === '' && b === '') ? '' : (Number(a || 0) + Number(b || 0));
+  }
+  function changedItems() {
+    if (!BR) return [];
+    return S.boot.items.filter(function (it, i) {
+      var o = BR.entries[nk(it)]; if (!o) return false;
+      return String(inp(i, 'bar').value) !== String(o.bar === '' ? '' : Number(o.bar)) || String(inp(i, 'gudang').value) !== String(o.gudang === '' ? '' : Number(o.gudang));
+    });
+  }
+  function updReason() { show('bReasonBox', changedItems().length > 0); }
+  function loadBar() {
+    if (!S.boot || S.role !== 'barista') return;
+    $('bSummary').innerHTML = '<div class="sum-box sum-info">Memuat…</div>';
+    call('apiBarReview', S.pin, $('bDate').value, segVal('bStatus'), segVal('bShift')).then(renderBar).catch(function (e) { msg(e); });
+  }
+  function renderBar(r) {
+    BR = r;
+    var nErr = 0, nLost = 0, nLostNoNote = 0, stock = segVal('bStatus') === 'Stock';
+    S.boot.items.forEach(function (it, i) {
+      var k = nk(it), v = r.entries[k], c = r.checks[k];
+      inp(i, 'bar').value = v ? Number(v.bar || 0) : ''; inp(i, 'gudang').value = v ? Number(v.gudang || 0) : '';
+      var locked = !r.editable || (c && c.type === 'hilang');
+      inp(i, 'bar').disabled = locked; inp(i, 'gudang').disabled = locked;
+      inp(i, 'bar').classList.toggle('filled', !!v); inp(i, 'gudang').classList.toggle('filled', !!v);
+      $('r' + i).className = c ? 'has-' + c.type : '';
+      var row = $('c' + i);
+      row.className = 'chk ' + (c ? c.type : 'hidden');
+      $('cm' + i).textContent = c ? (c.type === 'hilang' ? '🔴 ' : '⚠️ ') + c.msg : '';
+      var note = $('n' + i);
+      note.classList.toggle('hidden', !(c && c.type === 'hilang'));
+      note.value = r.notes[k] || '';
+      if (c && c.type === 'error') nErr++;
+      if (c && c.type === 'hilang') { nLost++; if (!r.notes[k]) nLostNoNote++; }
+      updTot(i);
+    });
+    var box;
+    if (!r.submitted) box = '<div class="sum-box sum-info">Belum ada input untuk pilihan ini. Isi semua item lalu Simpan.</div>';
+    else {
+      var parts = [];
+      if (!stock) parts.push('<div class="sum-box sum-info">Sudah tersimpan. Ubah angka lalu Simpan untuk koreksi (isi alasan).</div>');
+      else if (!nErr && !nLost) parts.push('<div class="sum-box sum-ok">✅ Semua hitungan cocok.' + (segVal('bShift') === 'PM' && !r.salesAvailable ? ' (Cek lengkap PM setelah data Raptor diimport.)' : '') + '</div>');
+      if (nErr) parts.push('<div class="sum-box sum-warn">⚠️ ' + nErr + ' kemungkinan salah input (kuning). Cek lagi, koreksi angka, isi alasan, lalu Simpan.</div>');
+      if (nLost) parts.push('<div class="sum-box sum-bad">🔴 ' + nLost + ' item stok hilang (merah)' + (nLostNoNote ? ', ' + nLostNoNote + ' belum ada keterangan' : '') + '. Angka tidak bisa diubah — isi keterangan lalu klik Simpan Keterangan.</div>');
+      if (!r.editable) parts.push('<div class="sum-box sum-info">🔒 Tanggal ini sudah lewat batas koreksi (' + r.editDays + ' hari). Angka tidak bisa diubah.</div>');
+      box = parts.join('');
+    }
+    $('bSummary').innerHTML = box;
+    show('bSave', r.editable);
+    $('bSave').textContent = r.submitted ? 'Simpan Koreksi / Tambahan' : 'Simpan Bar Stock';
+    show('bNoteSave', nLost > 0);
+    $('bReason').value = '';
+    updReason();
+  }
+  function saveBar() {
+    var name = $('bName').value.trim();
+    if (!name) { msg('Isi nama barista dulu.'); return; }
+    try { localStorage.setItem('dr_bname', name); } catch (e) {}
+    var lines = S.boot.items.map(function (it, i) { return { item: it, bar: inp(i, 'bar').value, gudang: inp(i, 'gudang').value, locked: inp(i, 'bar').disabled }; })
+      .filter(function (l) { return !l.locked && (l.bar !== '' || l.gudang !== ''); });
+    if (!lines.length) { msg('Belum ada angka yang diisi.'); return; }
+    var ch = changedItems();
+    if (ch.length && !$('bReason').value.trim()) { msg('Isi alasan koreksi untuk: ' + ch.join(', ')); $('bReason').focus(); return; }
+    if (!BR.submitted && segVal('bStatus') === 'Stock') {
+      var empty = S.boot.items.length - lines.length;
+      if (empty && !confirm(empty + ' item belum diisi. Tetap simpan?')) return;
+    }
+    $('bSave').disabled = true;
+    call('apiSaveBarStock', S.pin, { date: $('bDate').value, status: segVal('bStatus'), shift: segVal('bShift'), name: name, reason: $('bReason').value, lines: lines })
+      .then(function (res) { renderBar(res.review); msg(res.message, true); })
+      .catch(function (e) { msg(e); }).then(function () { $('bSave').disabled = false; });
+  }
+  function saveNotes() {
+    var name = $('bName').value.trim();
+    if (!name) { msg('Isi nama barista dulu.'); return; }
+    var notes = [];
+    S.boot.items.forEach(function (it, i) { var c = BR.checks[nk(it)]; if (c && c.type === 'hilang' && $('n' + i).value.trim()) notes.push({ item: it, note: $('n' + i).value.trim() }); });
+    if (!notes.length) { msg('Isi keterangan untuk item yang merah dulu.'); return; }
+    $('bNoteSave').disabled = true;
+    call('apiSaveBarNotes', S.pin, { date: $('bDate').value, shift: segVal('bShift'), name: name, notes: notes })
+      .then(function (res) { renderBar(res.review); msg(res.message, true); })
+      .catch(function (e) { msg(e); }).then(function () { $('bNoteSave').disabled = false; });
+  }
+
+  // ---- kasir ----
+  function initCashier() {
+    show('cashier', true);
+    $('cDate').value = S.boot.today;
+    $('cName').innerHTML = '<option value="">— pilih —</option>' + S.boot.cashiers.map(function (c) { return '<option>' + c.replace(/</g, '&lt;') + '</option>'; }).join('');
+    try { var last = localStorage.getItem('dr_cname'); if (last) $('cName').value = last; var lp = localStorage.getItem('dr_cpos'); if (lp) [].forEach.call($('cPos').children, function (b) { if (b.dataset.v === lp) b.click(); }); } catch (e) {}
+    $('cDenoms').innerHTML = S.boot.denoms.map(function (d, i) {
+      return '<tr><td>' + d.toLocaleString('id-ID') + '</td><td><input type="number" inputmode="numeric" min="0" data-d="' + i + '"></td><td class="tot" id="dv' + i + '">0</td></tr>';
+    }).join('');
+    $('cDenoms').addEventListener('input', calcCash);
+    $('cFloat').textContent = '− ' + fmt(S.boot.float);
+    calcCash();
+  }
+  seg('cPos');
+  function calcCash() {
+    var g = 0;
+    S.boot.denoms.forEach(function (d, i) { var n = Number(document.querySelector('input[data-d="' + i + '"]').value || 0); g += n * d; $('dv' + i).textContent = (n * d).toLocaleString('id-ID'); });
+    $('cGross').textContent = fmt(g);
+    $('cCoh').textContent = fmt(g ? g - S.boot.float : 0);
+    return g;
+  }
+  function saveCash() {
+    var name = $('cName').value, pos = segVal('cPos');
+    if (!name) { msg('Pilih nama kasir.'); return; }
+    if (!pos) { msg('Pilih POS (Ticketing / Restaurant).'); return; }
+    if (!calcCash()) { msg('Isi jumlah lembar/koin dulu.'); return; }
+    if (!confirm('Simpan cash count ' + name + ' – ' + pos + '?\nCash On Hand: ' + $('cCoh').textContent)) return;
+    try { localStorage.setItem('dr_cname', name); localStorage.setItem('dr_cpos', pos); } catch (e) {}
+    var counts = S.boot.denoms.map(function (d, i) { return document.querySelector('input[data-d="' + i + '"]').value; });
+    $('cSave').disabled = true;
+    call('apiSaveCash', S.pin, { date: $('cDate').value, pos: pos, cashier: name, counts: counts,
+      driver: $('cDriver').value, qris: $('cQris').value, card: $('cCard').value, nota: $('cNota').value,
+      refund: $('cRefund').value, other: $('cOther').value, note: $('cNote').value })
+      .then(function (r) { msg(r.message + (r.updated ? ' (data sebelumnya diganti)' : '') + '\nCash On Hand: ' + fmt(r.coh), true); })
+      .catch(function (e) { msg(e); }).then(function () { $('cSave').disabled = false; });
+  }
+
+  // ---- auto login dalam sesi tab yang sama ----
+  (function () {
+    var saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem('dr_auth') || 'null'); } catch (e) {}
+    if (saved && saved.role) { S.role = saved.role; $('pin').value = saved.pin; show('rolePick', false); show('pinBox', true); login(); }
+    else if (ROLE === 'barista' || ROLE === 'cashier') pickRole(ROLE);
+  })();
+</script>
+</body>
+</html>
