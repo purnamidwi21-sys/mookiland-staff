@@ -73,7 +73,7 @@
       <div class="roles" id="rolePick">
         <button onclick="pickRole('barista')">☕ Barista<small>Input bar stock (hand count AM / PM, reject, purchasing)</small></button>
         <button onclick="pickRole('cashier')">💵 Kasir<small>Input hitungan uang cash per POS</small></button>
-        <button onclick="pickRole('manager')">🔑 Manager<small>Koreksi angka bar stock (semua item & tanggal, tercatat)</small></button>
+        <button onclick="pickRole('manager')">🔑 Manager<small>Koreksi angka bar stock yang sudah diinput barista (tercatat)</small></button>
       </div>
       <div id="pinBox" class="hidden">
         <label id="pinLabel">PIN</label>
@@ -278,7 +278,8 @@
     S.boot.items.forEach(function (it, i) {
       var k = nk(it), v = r.entries[k], c = r.checks[k];
       inp(i, 'bar').value = v ? Number(v.bar || 0) : ''; inp(i, 'gudang').value = v ? Number(v.gudang || 0) : '';
-      var locked = !r.editable || (c && c.type === 'hilang' && !r.manager);
+      // Manager hanya koreksi angka yang sudah diinput barista
+      var locked = !r.editable || (c && c.type === 'hilang' && !r.manager) || (r.manager && !v);
       inp(i, 'bar').disabled = locked; inp(i, 'gudang').disabled = locked;
       inp(i, 'bar').classList.toggle('filled', !!v); inp(i, 'gudang').classList.toggle('filled', !!v);
       $('r' + i).className = c ? 'has-' + c.type : '';
@@ -293,7 +294,8 @@
       updTot(i);
     });
     var box;
-    if (!r.submitted) box = '<div class="sum-box sum-info">Belum ada input untuk pilihan ini. Isi semua item lalu Simpan.</div>';
+    if (!r.submitted) box = r.manager ? '<div class="sum-box sum-info">Belum ada input barista untuk pilihan ini, jadi belum ada yang bisa dikoreksi.</div>'
+      : '<div class="sum-box sum-info">Belum ada input untuk pilihan ini. Isi semua item lalu Simpan.</div>';
     else {
       var parts = [];
       if (!stock) parts.push('<div class="sum-box sum-info">Sudah tersimpan. Ubah angka lalu Simpan untuk koreksi (isi alasan).</div>');
@@ -304,10 +306,10 @@
       if (!r.editable) parts.push('<div class="sum-box sum-info">🔒 Tanggal ini sudah lewat batas koreksi (' + r.editDays + ' hari). Angka tidak bisa diubah.</div>');
       box = parts.join('');
     }
-    if (r.manager) box = '<div class="sum-box" style="background:#ede7f6;color:#4527a0">🔑 <b>Mode Manager</b> — semua angka bisa dikoreksi, termasuk stok hilang dan tanggal lama. Wajib isi alasan; tercatat di sheet Bar Stock Koreksi.</div>' + box;
+    if (r.manager) box = '<div class="sum-box" style="background:#ede7f6;color:#4527a0">🔑 <b>Mode Manager — hanya koreksi.</b> Angka yang sudah diinput barista bisa diubah (termasuk stok hilang & tanggal lama). Tidak bisa mengisi stok baru. Wajib isi alasan; tercatat di sheet Bar Stock Koreksi.</div>' + box;
     $('bSummary').innerHTML = box;
-    show('bSave', r.editable);
-    $('bSave').textContent = r.submitted ? 'Simpan Koreksi / Tambahan' : 'Simpan Bar Stock';
+    show('bSave', r.editable && (!r.manager || r.submitted));
+    $('bSave').textContent = r.manager ? 'Simpan Koreksi' : r.submitted ? 'Simpan Koreksi / Tambahan' : 'Simpan Bar Stock';
     show('bNoteSave', nLost > 0);
     $('bReason').value = '';
     updReason();
