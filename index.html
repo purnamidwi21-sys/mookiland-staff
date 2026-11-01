@@ -73,6 +73,7 @@
       <div class="roles" id="rolePick">
         <button onclick="pickRole('barista')">☕ Barista<small>Input bar stock (hand count AM / PM, reject, purchasing)</small></button>
         <button onclick="pickRole('cashier')">💵 Kasir<small>Input hitungan uang cash per POS</small></button>
+        <button onclick="pickRole('manager')">🔑 Manager<small>Koreksi angka bar stock (semua item & tanggal, tercatat)</small></button>
       </div>
       <div id="pinBox" class="hidden">
         <label id="pinLabel">PIN</label>
@@ -204,7 +205,7 @@
   }
 
   // ---- login ----
-  function pickRole(r) { S.role = r; show('rolePick', false); show('pinBox', true); $('pinLabel').textContent = 'PIN ' + (r === 'barista' ? 'Barista' : 'Kasir'); $('pin').focus(); }
+  function pickRole(r) { S.role = r; show('rolePick', false); show('pinBox', true); $('pinLabel').textContent = 'PIN ' + ({ barista: 'Barista', cashier: 'Kasir', manager: 'Manager' }[r] || ''); $('pin').focus(); }
   function resetRole() { S.role = ''; show('rolePick', true); show('pinBox', false); }
   $('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
   function login() {
@@ -219,8 +220,8 @@
   function logout() { try { sessionStorage.removeItem('dr_auth'); } catch (e) {} location.reload(); }
   function start() {
     show('login', false); show('logout', true);
-    $('title').textContent = S.boot.title + (S.role === 'barista' ? ' · Barista' : ' · Kasir');
-    if (S.role === 'barista') initBarista(); else initCashier();
+    $('title').textContent = S.boot.title + ({ barista: ' · Barista', cashier: ' · Kasir', manager: ' · Manager' }[S.role] || '');
+    if (S.role === 'barista' || S.role === 'manager') initBarista(); else initCashier();
   }
 
   // ---- barista ----
@@ -230,7 +231,8 @@
   function initBarista() {
     show('barista', true);
     $('bDate').value = S.boot.today;
-    try { $('bName').value = localStorage.getItem('dr_bname') || ''; } catch (e) {}
+    try { $('bName').value = localStorage.getItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname') || ''; } catch (e) {}
+    if (S.role === 'manager') { document.querySelector('#barista label[for], #barista .row2 div:nth-child(2) label').textContent = 'Nama manager'; }
     if (new Date().getHours() >= 15) $('bShift').children[1].click(); // sore/malam: default PM
     $('bItems').innerHTML = S.boot.items.map(function (it, i) {
       return '<tr id="r' + i + '"><td class="item">' + esc(it) + '</td>' +
@@ -266,9 +268,9 @@
   }
   function updReason() { show('bReasonBox', changedItems().length > 0); }
   function loadBar() {
-    if (!S.boot || S.role !== 'barista') return;
+    if (!S.boot || (S.role !== 'barista' && S.role !== 'manager')) return;
     $('bSummary').innerHTML = '<div class="sum-box sum-info">Memuat…</div>';
-    call('apiBarReview', S.pin, $('bDate').value, segVal('bStatus'), segVal('bShift')).then(renderBar).catch(function (e) { msg(e); });
+    call('apiBarReview', S.pin, $('bDate').value, segVal('bStatus'), segVal('bShift'), S.role).then(renderBar).catch(function (e) { msg(e); });
   }
   function renderBar(r) {
     BR = r;
@@ -276,7 +278,7 @@
     S.boot.items.forEach(function (it, i) {
       var k = nk(it), v = r.entries[k], c = r.checks[k];
       inp(i, 'bar').value = v ? Number(v.bar || 0) : ''; inp(i, 'gudang').value = v ? Number(v.gudang || 0) : '';
-      var locked = !r.editable || (c && c.type === 'hilang');
+      var locked = !r.editable || (c && c.type === 'hilang' && !r.manager);
       inp(i, 'bar').disabled = locked; inp(i, 'gudang').disabled = locked;
       inp(i, 'bar').classList.toggle('filled', !!v); inp(i, 'gudang').classList.toggle('filled', !!v);
       $('r' + i).className = c ? 'has-' + c.type : '';
@@ -297,10 +299,12 @@
       if (!stock) parts.push('<div class="sum-box sum-info">Sudah tersimpan. Ubah angka lalu Simpan untuk koreksi (isi alasan).</div>');
       else if (!nErr && !nLost) parts.push('<div class="sum-box sum-ok">✅ Semua hitungan cocok.' + (segVal('bShift') === 'PM' && !r.salesAvailable ? ' (Cek lengkap PM setelah data Raptor diimport.)' : '') + '</div>');
       if (nErr) parts.push('<div class="sum-box sum-warn">⚠️ ' + nErr + ' kemungkinan salah input (kuning). Cek lagi, koreksi angka, isi alasan, lalu Simpan.</div>');
-      if (nLost) parts.push('<div class="sum-box sum-bad">🔴 ' + nLost + ' item stok hilang (merah)' + (nLostNoNote ? ', ' + nLostNoNote + ' belum ada keterangan' : '') + '. Angka tidak bisa diubah — isi keterangan lalu klik Simpan Keterangan.</div>');
+      if (nLost) parts.push('<div class="sum-box sum-bad">🔴 ' + nLost + ' item stok hilang (merah)' + (nLostNoNote ? ', ' + nLostNoNote + ' belum ada keterangan' : '') + '. ' +
+        (r.manager ? 'Manager bisa koreksi angkanya (isi alasan) atau beri keterangan.' : 'Angka tidak bisa diubah — isi keterangan lalu klik Simpan Keterangan.') + '</div>');
       if (!r.editable) parts.push('<div class="sum-box sum-info">🔒 Tanggal ini sudah lewat batas koreksi (' + r.editDays + ' hari). Angka tidak bisa diubah.</div>');
       box = parts.join('');
     }
+    if (r.manager) box = '<div class="sum-box" style="background:#ede7f6;color:#4527a0">🔑 <b>Mode Manager</b> — semua angka bisa dikoreksi, termasuk stok hilang dan tanggal lama. Wajib isi alasan; tercatat di sheet Bar Stock Koreksi.</div>' + box;
     $('bSummary').innerHTML = box;
     show('bSave', r.editable);
     $('bSave').textContent = r.submitted ? 'Simpan Koreksi / Tambahan' : 'Simpan Bar Stock';
@@ -310,8 +314,8 @@
   }
   function saveBar() {
     var name = $('bName').value.trim();
-    if (!name) { msg('Isi nama barista dulu.'); return; }
-    try { localStorage.setItem('dr_bname', name); } catch (e) {}
+    if (!name) { msg('Isi nama dulu.'); return; }
+    try { localStorage.setItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname', name); } catch (e) {}
     var lines = S.boot.items.map(function (it, i) { return { item: it, bar: inp(i, 'bar').value, gudang: inp(i, 'gudang').value, locked: inp(i, 'bar').disabled }; })
       .filter(function (l) { return !l.locked && (l.bar !== '' || l.gudang !== ''); });
     if (!lines.length) { msg('Belum ada angka yang diisi.'); return; }
@@ -322,7 +326,7 @@
       if (empty && !confirm(empty + ' item belum diisi. Tetap simpan?')) return;
     }
     $('bSave').disabled = true;
-    call('apiSaveBarStock', S.pin, { date: $('bDate').value, status: segVal('bStatus'), shift: segVal('bShift'), name: name, reason: $('bReason').value, lines: lines })
+    call('apiSaveBarStock', S.pin, { role: S.role, date: $('bDate').value, status: segVal('bStatus'), shift: segVal('bShift'), name: name, reason: $('bReason').value, lines: lines })
       .then(function (res) { renderBar(res.review); msg(res.message, true); })
       .catch(function (e) { msg(e); }).then(function () { $('bSave').disabled = false; });
   }
@@ -333,7 +337,7 @@
     S.boot.items.forEach(function (it, i) { var c = BR.checks[nk(it)]; if (c && c.type === 'hilang' && $('n' + i).value.trim()) notes.push({ item: it, note: $('n' + i).value.trim() }); });
     if (!notes.length) { msg('Isi keterangan untuk item yang merah dulu.'); return; }
     $('bNoteSave').disabled = true;
-    call('apiSaveBarNotes', S.pin, { date: $('bDate').value, shift: segVal('bShift'), name: name, notes: notes })
+    call('apiSaveBarNotes', S.pin, { role: S.role, date: $('bDate').value, shift: segVal('bShift'), name: name, notes: notes })
       .then(function (res) { renderBar(res.review); msg(res.message, true); })
       .catch(function (e) { msg(e); }).then(function () { $('bNoteSave').disabled = false; });
   }
@@ -380,7 +384,7 @@
     var saved = null;
     try { saved = JSON.parse(sessionStorage.getItem('dr_auth') || 'null'); } catch (e) {}
     if (saved && saved.role) { S.role = saved.role; $('pin').value = saved.pin; show('rolePick', false); show('pinBox', true); login(); }
-    else if (ROLE === 'barista' || ROLE === 'cashier') pickRole(ROLE);
+    else if (ROLE === 'barista' || ROLE === 'cashier' || ROLE === 'manager') pickRole(ROLE);
   })();
 </script>
 </body>
