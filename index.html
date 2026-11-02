@@ -97,7 +97,7 @@
     <div class="card">
       <div class="row2">
         <div><label>Tanggal</label><input id="bDate" type="date" onchange="loadBar()"></div>
-        <div><label>Nama barista</label><input id="bName" placeholder="Nama"></div>
+        <div><label id="bNameLabel">Nama barista</label><select id="bNameSel" class="hidden"></select><input id="bName" placeholder="Nama"></div>
       </div>
       <label>Jenis input</label>
       <div class="seg" id="bStatus">
@@ -244,8 +244,19 @@
   function initBarista() {
     show('barista', true);
     $('bDate').value = S.boot.today;
-    try { $('bName').value = localStorage.getItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname') || ''; } catch (e) {}
-    if (S.role === 'manager') { document.querySelector('#barista label[for], #barista .row2 div:nth-child(2) label').textContent = 'Nama manager'; }
+    var names = S.boot.baristas || [];
+    if (S.role === 'manager') $('bNameLabel').textContent = 'Nama manager';
+    if (names.length) {
+      // barista memilih nama dari daftar (tidak bisa salah ketik)
+      $('bNameSel').innerHTML = '<option value="">— pilih nama —</option>' + names.map(function (n) { return '<option>' + esc(n) + '</option>'; }).join('');
+      show('bNameSel', true); show('bName', false);
+      $('bNameSel').addEventListener('change', function () { $('bName').value = $('bNameSel').value; });
+    }
+    try {
+      var saved = localStorage.getItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname') || '';
+      if (names.length) { if (names.indexOf(saved) >= 0) $('bNameSel').value = saved; else saved = ''; }
+      $('bName').value = saved;
+    } catch (e) {}
     if (new Date().getHours() >= 15) $('bShift').children[1].click(); // sore/malam: default PM
     var cats = S.boot.cats || [];
     $('bItems').innerHTML = S.boot.items.map(function (it, i) {
@@ -333,7 +344,7 @@
   }
   function saveBar() {
     var name = $('bName').value.trim();
-    if (!name) { msg('Isi nama dulu.'); return; }
+    if (!name) { msg(S.boot.baristas && S.boot.baristas.length ? 'Pilih nama dulu.' : 'Isi nama dulu.'); return; }
     try { localStorage.setItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname', name); } catch (e) {}
     var lines = S.boot.items.map(function (it, i) { return { item: it, bar: inp(i, 'bar').value, gudang: inp(i, 'gudang').value, locked: inp(i, 'bar').disabled }; })
       .filter(function (l) { return !l.locked && (l.bar !== '' || l.gudang !== ''); });
@@ -355,7 +366,7 @@
   }
   function saveNotes() {
     var name = $('bName').value.trim();
-    if (!name) { msg('Isi nama barista dulu.'); return; }
+    if (!name) { msg('Pilih nama dulu.'); return; }
     var notes = [];
     S.boot.items.forEach(function (it, i) { var c = BR.checks[nk(it)]; if (c && c.type === 'hilang' && $('n' + i).value.trim()) notes.push({ item: it, note: $('n' + i).value.trim() }); });
     if (!notes.length) { msg('Isi keterangan untuk item yang merah dulu.'); return; }
