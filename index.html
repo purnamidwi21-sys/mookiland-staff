@@ -60,6 +60,7 @@
   .sum-ok { background:#e6f4ea; color:#1e7b34; } .sum-warn { background:#fff8e1; color:#8a5a00; } .sum-bad { background:#fde9e7; color:#c00000; } .sum-info { background:#eef3fa; color:#2f5597; }
   input:disabled { background:#f2f2f2; color:#666; }
   body.zoomed main { max-width:none; }
+  tr.cat td { background:#eef3fa; color:var(--blue); font-weight:700; font-size:13px; text-transform:uppercase; letter-spacing:.4px; padding:8px 6px; border-bottom:1px solid var(--line); }
   /* form kasir: kotak jumlah lembar/koin dibuat ringkas */
   #cDenoms td { padding:4px 4px; }
   #cDenoms td:nth-child(1) { width:34%; }
@@ -246,8 +247,10 @@
     try { $('bName').value = localStorage.getItem(S.role === 'manager' ? 'dr_mname' : 'dr_bname') || ''; } catch (e) {}
     if (S.role === 'manager') { document.querySelector('#barista label[for], #barista .row2 div:nth-child(2) label').textContent = 'Nama manager'; }
     if (new Date().getHours() >= 15) $('bShift').children[1].click(); // sore/malam: default PM
+    var cats = S.boot.cats || [];
     $('bItems').innerHTML = S.boot.items.map(function (it, i) {
-      return '<tr id="r' + i + '"><td class="item">' + esc(it) + '</td>' +
+      var head = cats[i] && cats[i] !== cats[i - 1] ? '<tr class="cat"><td colspan="4">' + esc(cats[i]) + '</td></tr>' : '';
+      return head + '<tr id="r' + i + '"><td class="item">' + esc(it) + '</td>' +
         '<td><input type="number" inputmode="numeric" min="0" step="1" data-i="' + i + '" data-f="bar"></td>' +
         '<td class="gd"><input type="number" inputmode="numeric" min="0" step="1" data-i="' + i + '" data-f="gudang"></td>' +
         '<td class="tot" id="t' + i + '"></td></tr>' +
@@ -313,8 +316,9 @@
       if (!stock) parts.push('<div class="sum-box sum-info">Sudah tersimpan. Ubah angka lalu Simpan untuk koreksi (isi alasan).</div>');
       else if (!nErr && !nLost) parts.push('<div class="sum-box sum-ok">✅ Semua hitungan cocok.' + (segVal('bShift') === 'PM' && !r.salesAvailable ? ' (Cek lengkap PM setelah data Raptor diimport.)' : '') + '</div>');
       if (nErr) parts.push('<div class="sum-box sum-warn">⚠️ ' + nErr + ' kemungkinan salah input (kuning). Cek lagi, koreksi angka, isi alasan, lalu Simpan.</div>');
-      if (nLost) parts.push('<div class="sum-box sum-bad">🔴 ' + nLost + ' item stok hilang (merah)' + (nLostNoNote ? ', ' + nLostNoNote + ' belum ada keterangan' : '') + '. ' +
+      if (nLost && nLostNoNote) parts.push('<div class="sum-box sum-bad">🔴 ' + nLost + ' item stok hilang (merah), ' + nLostNoNote + ' belum ada keterangan. ' +
         (r.manager ? 'Manager bisa koreksi angkanya (isi alasan) atau beri keterangan.' : 'Angka tidak bisa diubah — isi keterangan lalu klik Simpan Keterangan.') + '</div>');
+      else if (nLost) parts.push('<div class="sum-box sum-ok">✅ ' + nLost + ' item stok hilang — semua sudah ada keterangan. Tidak perlu apa-apa lagi.</div>');
       if (!r.editable) parts.push('<div class="sum-box sum-info">🔒 Tanggal ini sudah lewat batas koreksi (' + r.editDays + ' hari). Angka tidak bisa diubah.</div>');
       box = parts.join('');
     }
@@ -323,6 +327,7 @@
     show('bSave', r.editable && (!r.manager || r.submitted));
     $('bSave').textContent = r.manager ? 'Simpan Koreksi' : r.submitted ? 'Simpan Koreksi / Tambahan' : 'Simpan Bar Stock';
     show('bNoteSave', nLost > 0);
+    $('bNoteSave').textContent = nLostNoNote ? 'Simpan Keterangan Stok Hilang' : 'Ubah Keterangan Stok Hilang';
     $('bReason').value = '';
     updReason();
   }
@@ -341,7 +346,11 @@
     }
     $('bSave').disabled = true;
     call('apiSaveBarStock', S.pin, { role: S.role, date: $('bDate').value, status: segVal('bStatus'), shift: segVal('bShift'), name: name, reason: $('bReason').value, lines: lines })
-      .then(function (res) { renderBar(res.review); msg(res.message, true); })
+      .then(function (res) {
+        renderBar(res.review);
+        var todo = Object.keys(res.review.checks || {}).length;
+        msg(res.message + (todo ? '\nCek tanda kuning/merah di bawah.' : '\nSemua cocok. Selesai — halaman ini boleh ditutup.'), true);
+      })
       .catch(function (e) { msg(e); }).then(function () { $('bSave').disabled = false; });
   }
   function saveNotes() {
@@ -352,7 +361,7 @@
     if (!notes.length) { msg('Isi keterangan untuk item yang merah dulu.'); return; }
     $('bNoteSave').disabled = true;
     call('apiSaveBarNotes', S.pin, { role: S.role, date: $('bDate').value, shift: segVal('bShift'), name: name, notes: notes })
-      .then(function (res) { renderBar(res.review); msg(res.message, true); })
+      .then(function (res) { renderBar(res.review); msg(res.message + '\nSelesai — halaman ini boleh ditutup.', true); })
       .catch(function (e) { msg(e); }).then(function () { $('bNoteSave').disabled = false; });
   }
 
