@@ -60,6 +60,13 @@
   .sum-ok { background:#e6f4ea; color:#1e7b34; } .sum-warn { background:#fff8e1; color:#8a5a00; } .sum-bad { background:#fde9e7; color:#c00000; } .sum-info { background:#eef3fa; color:#2f5597; }
   input:disabled { background:#f2f2f2; color:#666; }
   body.zoomed main { max-width:none; }
+  /* form kasir: kotak jumlah lembar/koin dibuat ringkas */
+  #cDenoms td { padding:4px 4px; }
+  #cDenoms td:nth-child(1) { width:34%; }
+  #cDenoms td:nth-child(2) { width:33%; text-align:center; }
+  #cDenoms td:nth-child(2) input { width:96px; max-width:100%; padding:8px; text-align:center; }
+  #cDenoms td:nth-child(3) { width:33%; }
+  #cashTable th:nth-child(2) { text-align:center; }
 </style>
 </head>
 <body>
@@ -134,8 +141,8 @@
       <div class="seg" id="cPos"><button data-v="Ticketing">Ticketing</button><button data-v="Restaurant">Restaurant</button></div>
     </div>
     <div class="card">
-      <table>
-        <thead><tr><th>Pecahan</th><th>Jumlah lembar/koin</th><th>Nilai</th></tr></thead>
+      <table id="cashTable">
+        <thead><tr><th>Pecahan</th><th>Jumlah</th><th>Nilai</th></tr></thead>
         <tbody id="cDenoms"></tbody>
       </table>
       <div class="sum"><span>Total uang di laci</span><b id="cGross">0</b></div>
