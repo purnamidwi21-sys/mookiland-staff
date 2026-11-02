@@ -143,19 +143,24 @@
       <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span><b>Cash On Hand</b></span><b id="cCoh">0</b></div>
     </div>
     <div class="card">
-      <details>
-        <summary>Penyesuaian (opsional) — uang yang tidak ada di laci</summary>
-        <p class="hint">Isi angka positif. Contoh: transaksi tercatat CASH di Raptor tapi tamu bayar QRIS.</p>
-        <div class="row2">
-          <div><label>Komisi driver dibayar</label><input id="cDriver" type="number" inputmode="numeric" min="0"></div>
-          <div><label>Tercatat cash, dibayar QRIS</label><input id="cQris" type="number" inputmode="numeric" min="0"></div>
-          <div><label>Tercatat cash, dibayar CARD</label><input id="cCard" type="number" inputmode="numeric" min="0"></div>
-          <div><label>Nota / pengeluaran</label><input id="cNota" type="number" inputmode="numeric" min="0"></div>
-          <div><label>Refund</label><input id="cRefund" type="number" inputmode="numeric" min="0"></div>
-          <div><label>Lainnya</label><input id="cOther" type="number" inputmode="numeric" min="0"></div>
-        </div>
-        <label>Catatan</label><input id="cNote" placeholder="Keterangan penyesuaian">
-      </details>
+      <div style="font-weight:600;margin-bottom:2px">Penjelasan selisih</div>
+      <p class="hint" style="margin-top:0">Isi kalau ada uang keluar dari laci atau selisih uang kecil. Kosongkan kalau tidak ada.</p>
+      <label>Komisi driver dibayar dari laci (Rp)</label>
+      <input id="cDriver" type="number" inputmode="numeric" min="0">
+      <div style="font-weight:600;margin:14px 0 0">Refund tunai</div>
+      <p class="hint" style="margin-top:2px">Tamu sudah bayar non-tunai, lalu dikembalikan pakai uang cash dari laci.</p>
+      <div class="row2">
+        <div><label>Tamu bayar QRIS (Rp)</label><input id="cRefQris" type="number" inputmode="numeric" min="0"></div>
+        <div><label>Tamu bayar Card (Rp)</label><input id="cRefCard" type="number" inputmode="numeric" min="0"></div>
+      </div>
+      <label>Tamu bayar Bank Transfer (Rp)</label>
+      <input id="cRefBt" type="number" inputmode="numeric" min="0">
+      <div style="font-weight:600;margin:14px 0 0">Uang kecil</div>
+      <p class="hint" style="margin-top:2px">Selisih kembalian / pecahan kecil.</p>
+      <div class="seg" id="cSmallDir"><button data-v="1" class="on">Lebih (+)</button><button data-v="-1">Kurang (−)</button></div>
+      <input id="cSmall" type="number" inputmode="numeric" min="0" style="margin-top:8px" placeholder="Rp">
+      <label>Catatan</label><input id="cNote" placeholder="mis. refund tamu meja 5, driver Grab">
+      <div class="sum" style="border-top:1px solid var(--line);margin-top:12px;padding-top:8px"><span>Total penjelasan</span><b id="cExplained">Rp 0</b></div>
     </div>
     <button class="big" id="cSave" onclick="saveCash()">Simpan Cash Count</button>
   </section>
@@ -354,13 +359,18 @@
       return '<tr><td>' + d.toLocaleString('id-ID') + '</td><td><input type="number" inputmode="numeric" min="0" data-d="' + i + '"></td><td class="tot" id="dv' + i + '">0</td></tr>';
     }).join('');
     $('cDenoms').addEventListener('input', calcCash);
+    ['cDriver', 'cRefQris', 'cRefCard', 'cRefBt', 'cSmall'].forEach(function (id) { $(id).addEventListener('input', calcCash); });
     $('cFloat').textContent = '− ' + fmt(S.boot.float);
     calcCash();
   }
   seg('cPos');
+  seg('cSmallDir', function () { calcCash(); });
+  function smallSigned() { var v = Math.abs(Number($('cSmall').value || 0)); return v * Number(segVal('cSmallDir') || 1); }
   function calcCash() {
     var g = 0;
     S.boot.denoms.forEach(function (d, i) { var n = Number(document.querySelector('input[data-d="' + i + '"]').value || 0); g += n * d; $('dv' + i).textContent = (n * d).toLocaleString('id-ID'); });
+    var ex = -Number($('cDriver').value || 0) - Number($('cRefQris').value || 0) - Number($('cRefCard').value || 0) - Number($('cRefBt').value || 0) + smallSigned();
+    $('cExplained').textContent = (ex > 0 ? '+' : '') + fmt(ex).replace('Rp -', '−Rp ');
     $('cGross').textContent = fmt(g);
     $('cCoh').textContent = fmt(g ? g - S.boot.float : 0);
     return g;
@@ -375,8 +385,8 @@
     var counts = S.boot.denoms.map(function (d, i) { return document.querySelector('input[data-d="' + i + '"]').value; });
     $('cSave').disabled = true;
     call('apiSaveCash', S.pin, { date: $('cDate').value, pos: pos, cashier: name, counts: counts,
-      driver: $('cDriver').value, qris: $('cQris').value, card: $('cCard').value, nota: $('cNota').value,
-      refund: $('cRefund').value, other: $('cOther').value, note: $('cNote').value })
+      driver: $('cDriver').value, refQris: $('cRefQris').value, refCard: $('cRefCard').value, refBt: $('cRefBt').value,
+      small: smallSigned(), note: $('cNote').value })
       .then(function (r) { msg(r.message + (r.updated ? ' (data sebelumnya diganti)' : '') + '\nCash On Hand: ' + fmt(r.coh), true); })
       .catch(function (e) { msg(e); }).then(function () { $('cSave').disabled = false; });
   }
