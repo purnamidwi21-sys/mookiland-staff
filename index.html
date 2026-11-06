@@ -97,16 +97,10 @@
     </div>
   </section>
 
-  <!-- Manager: pilih menu -->
-  <div class="card hidden" id="mgrTabs">
-    <div class="seg" id="mTab"><button data-v="bar" class="on">☕ Bar Stock</button><button data-v="box">💰 Hitung Uang</button></div>
-  </div>
-
-  <!-- Manager: hitung uang (float + penjualan belum diambil Boss) -->
+  <!-- Hitung uang (khusus pemilik, buka dengan ?role=uang): float + penjualan belum diambil Boss -->
   <section id="box" class="hidden">
     <div class="card">
-      <label>Nama manager</label><input id="xName" placeholder="Nama">
-      <p class="hint">Hitung setelah semua kasir tutup dan sudah input cash count. Hitung <b>semua</b> uang: blue box kasir + box hijau.</p>
+      <p class="hint" style="margin-top:0">Hitung setelah semua kasir tutup dan sudah input cash count. Hitung <b>semua</b> uang: blue box kasir + box hijau.</p>
       <div id="xWeekBox" class="hidden">
         <label>Boss sudah ambil uang penjualan minggu lalu?</label>
         <div class="seg" id="xTaken"><button data-v="1">Sudah</button><button data-v="0">Belum</button></div>
@@ -258,7 +252,7 @@
   }
 
   // ---- login ----
-  function pickRole(r) { S.role = r; show('rolePick', false); show('pinBox', true); $('pinLabel').textContent = 'PIN ' + ({ barista: 'Barista', cashier: 'Kasir', manager: 'Manager' }[r] || ''); $('pin').focus(); }
+  function pickRole(r) { S.role = r; show('rolePick', false); show('pinBox', true); $('pinLabel').textContent = 'PIN ' + ({ barista: 'Barista', cashier: 'Kasir', manager: 'Manager', uang: 'Hitung Uang' }[r] || ''); $('pin').focus(); }
   function resetRole() { S.role = ''; show('rolePick', true); show('pinBox', false); }
   $('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
   function login() {
@@ -273,9 +267,9 @@
   function logout() { try { sessionStorage.removeItem('dr_auth'); } catch (e) {} location.reload(); }
   function start() {
     show('login', false); show('logout', true);
-    $('title').textContent = S.boot.title + ({ barista: ' · Barista', cashier: ' · Kasir', manager: ' · Manager' }[S.role] || '');
-    if (S.role === 'barista' || S.role === 'manager') initBarista(); else initCashier();
-    if (S.role === 'manager') show('mgrTabs', true);
+    $('title').textContent = S.boot.title + ({ barista: ' · Barista', cashier: ' · Kasir', manager: ' · Manager', uang: ' · Hitung Uang' }[S.role] || '');
+    if (S.role === 'uang') initBox();
+    else if (S.role === 'barista' || S.role === 'manager') initBarista(); else initCashier();
   }
 
   // ---- barista ----
@@ -474,12 +468,11 @@
 
   // ---- manager: hitung uang ----
   var XB = null, xInit = false;
-  seg('mTab', function (v) { show('barista', v === 'bar'); show('box', v === 'box'); msg(''); if (v === 'box') initBox(); });
   seg('xTaken', function () { loadBox(); });
   function initBox() {
+    show('box', true);
     if (!xInit) {
       xInit = true;
-      try { var n = localStorage.getItem('dr_xname'); if (n) $('xName').value = n; } catch (e) {}
       $('xDenoms').innerHTML = S.boot.denoms.map(function (d, i) {
         return '<tr><td>' + d.toLocaleString('id-ID') + '</td><td><input type="number" inputmode="numeric" min="0" data-x="' + i + '"></td><td class="tot" id="xv' + i + '">0</td></tr>';
       }).join('');
@@ -513,14 +506,11 @@
     return g;
   }
   function saveBox() {
-    var name = $('xName').value.trim();
-    if (!name) { msg('Isi nama manager.'); return; }
     if (!calcBox()) { msg('Isi jumlah lembar/koin dulu.'); return; }
     if (!confirm('Simpan hitungan uang?\nDihitung: ' + $('xCounted').textContent + '\nSelisih: ' + $('xDiff').textContent)) return;
-    try { localStorage.setItem('dr_xname', name); } catch (e) {}
     var counts = S.boot.denoms.map(function (d, i) { return document.querySelector('input[data-x="' + i + '"]').value; });
     $('xSave').disabled = true;
-    call('apiSaveCashBox', S.pin, { name: name, counts: counts, withLastWeek: withLastWeek(), note: $('xNote').value })
+    call('apiSaveCashBox', S.pin, { counts: counts, withLastWeek: withLastWeek(), note: $('xNote').value })
       .then(function (r) { var df = r.diff; msg(r.message + '\nDihitung ' + fmt(r.counted) + ' · Seharusnya ' + fmt(r.expected) + ' · ' + (df === 0 ? 'Cocok' : (df > 0 ? 'Lebih ' : 'Kurang ') + fmt(Math.abs(df))), true); })
       .catch(function (e) { msg(e); }).then(function () { $('xSave').disabled = false; });
   }
@@ -530,7 +520,7 @@
     var saved = null;
     try { saved = JSON.parse(sessionStorage.getItem('dr_auth') || 'null'); } catch (e) {}
     if (saved && saved.role) { S.role = saved.role; $('pin').value = saved.pin; show('rolePick', false); show('pinBox', true); login(); }
-    else if (ROLE === 'barista' || ROLE === 'cashier' || ROLE === 'manager') pickRole(ROLE);
+    else if (ROLE === 'barista' || ROLE === 'cashier' || ROLE === 'manager' || ROLE === 'uang') pickRole(ROLE);
   })();
 </script>
 </body>
