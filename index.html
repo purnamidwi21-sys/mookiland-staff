@@ -262,6 +262,7 @@
 
 <script>
   var ROLE = (new URLSearchParams(location.search).get('role') || '');
+  var AUTO_PIN = '';
   // Google Sites mengecilkan embed di HP (iframe lebar desktop yang di-scale). Kompensasi dengan zoom
   // supaya tulisan & tombol tetap besar: rasio = lebar iframe / lebar layar HP.
   (function fitPhone() {
@@ -320,7 +321,7 @@
   function start() {
     show('login', false); show('logout', true);
     $('title').textContent = S.boot.title + ({ barista: ' · Barista', cashier: ' · Kasir', manager: ' · Manager', uang: ' · Hitung Uang' }[S.role] || '');
-    if (S.role === 'uang') { show('uTabs', true); initBox(); }
+    if (S.role === 'uang') { show('uTabs', true); if (AUTO_PIN) $('uTab').querySelector('[data-v=petty]').click(); else initBox(); }
     else if (S.role === 'barista' || S.role === 'manager') initBarista(); else initCashier();
   }
 
@@ -664,7 +665,8 @@
   (function () {
     var saved = null;
     try { saved = JSON.parse(sessionStorage.getItem('dr_auth') || 'null'); } catch (e) {}
-    if (saved && saved.role) { S.role = saved.role; $('pin').value = saved.pin; show('rolePick', false); show('pinBox', true); login(); }
+    if (AUTO_PIN && ROLE) { S.role = ROLE; $('pin').value = AUTO_PIN; show('rolePick', false); show('pinBox', true); login(); }
+    else if (saved && saved.role) { S.role = saved.role; $('pin').value = saved.pin; show('rolePick', false); show('pinBox', true); login(); }
     else if (ROLE === 'barista' || ROLE === 'cashier' || ROLE === 'manager' || ROLE === 'uang') pickRole(ROLE);
   })();
 </script>
