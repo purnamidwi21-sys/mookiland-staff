@@ -70,7 +70,9 @@
   #cashTable th:nth-child(2) { text-align:center; }
   #xDenoms td:nth-child(2) { width:33%; text-align:center; }
   #xDenoms td:nth-child(2) input { width:96px; max-width:100%; padding:8px; text-align:center; }
-  #xDenoms td:nth-child(3) { width:33%; text-align:right; }
+  #xDenoms td:nth-child(3) { width:33%; text-align:center; }
+  #xDenoms td:nth-child(3) input { width:96px; max-width:100%; padding:8px; text-align:center; }
+  #boxTable th:nth-child(3) { text-align:center; } #boxTable tfoot td { padding-top:10px; text-align:center; }
   #boxTable { width:100%; border-collapse:collapse; } #boxTable th:nth-child(2) { text-align:center; }
   .good { color:#1e7b34; } .bad { color:#c00000; }
 </style>
@@ -100,7 +102,7 @@
   <!-- Hitung uang (khusus pemilik, buka dengan ?role=uang): float + penjualan belum diambil Boss -->
   <section id="box" class="hidden">
     <div class="card">
-      <p class="hint" style="margin-top:0">Hitung setelah semua kasir tutup dan sudah input cash count. Hitung <b>semua</b> uang: blue box kasir + box hijau.</p>
+      <p class="hint" style="margin-top:0">Hitung setelah semua kasir tutup dan sudah input cash count. Isi jumlah lembar di dua kolom: <b>Float</b> (box hijau) dan <b>Blue box</b> (uang penjualan).</p>
       <div id="xWeekBox" class="hidden">
         <label>Boss sudah ambil uang penjualan minggu lalu?</label>
         <div class="seg" id="xTaken"><button data-v="1">Sudah</button><button data-v="0">Belum</button></div>
@@ -108,19 +110,28 @@
     </div>
     <div class="card">
       <table id="boxTable">
-        <thead><tr><th>Pecahan</th><th>Jumlah</th><th>Nilai</th></tr></thead>
+        <thead><tr><th>Pecahan</th><th>Float</th><th>Blue box</th></tr></thead>
         <tbody id="xDenoms"></tbody>
+        <tfoot><tr><td><b>Total</b></td><td class="tot"><b id="xfT">0</b></td><td class="tot"><b id="xbT">0</b></td></tr></tfoot>
       </table>
-      <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span><b>Total dihitung</b></span><b id="xCounted">Rp 0</b></div>
     </div>
     <div class="card">
-      <div style="font-weight:600;margin-bottom:4px">Seharusnya</div>
-      <div class="sum"><span>Float (modal kasir + cadangan box hijau)</span><b id="xFloat">Rp 0</b></div>
+      <div style="font-weight:600;margin-bottom:4px">1. Cash Float</div>
+      <div class="sum"><span>Dihitung (box hijau)</span><b id="xfCount">Rp 0</b></div>
+      <div class="sum"><span>Beredar di kasir</span><input id="xOut" type="number" inputmode="numeric" min="0" style="width:130px;text-align:right"></div>
+      <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span><b>Total float</b></span><b id="xfTotal">Rp 0</b></div>
+      <div class="sum"><span>Seharusnya</span><b id="xFloat">Rp 0</b></div>
+      <div class="sum" style="font-size:17px"><span><b>Selisih</b></span><b id="xfDiff">–</b></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:4px">2. Blue box</div>
+      <div class="sum"><span>Dihitung</span><b id="xbCount">Rp 0</b></div>
       <div class="sum"><span>Penjualan cash belum diambil Boss<br><small class="hint" id="xPeriod"></small></span><b id="xSales">Rp 0</b></div>
       <div id="xDays" class="hint" style="margin:4px 0 6px 10px"></div>
-      <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span><b>Seharusnya ada</b></span><b id="xExpected">Rp 0</b></div>
-      <div class="sum" style="font-size:17px"><span><b>Selisih</b></span><b id="xDiff">–</b></div>
-      <label>Catatan</label><input id="xNote" placeholder="mis. uang kecil kurang, ambil untuk belanja">
+      <div class="sum" style="font-size:17px;border-top:1px solid var(--line);padding-top:8px"><span><b>Selisih</b></span><b id="xbDiff">–</b></div>
+    </div>
+    <div class="card">
+      <label style="margin-top:0">Catatan</label><input id="xNote" placeholder="mis. uang kecil kurang, ambil untuk belanja">
     </div>
     <button class="big" id="xSave" onclick="saveBox()">Simpan Hitungan</button>
   </section>
@@ -466,17 +477,21 @@
       (ok ? '' : '<p class="hint">Cek lagi hitungan lembar, atau isi penjelasan (komisi driver, refund, uang kecil), lalu simpan ulang.</p>');
   }
 
-  // ---- manager: hitung uang ----
+  // ---- hitung uang (khusus pemilik) ----
   var XB = null, xInit = false;
   seg('xTaken', function () { loadBox(); });
+  function xIn(col, i) { return Number(document.querySelector('input[data-' + col + '="' + i + '"]').value || 0); }
   function initBox() {
     show('box', true);
     if (!xInit) {
       xInit = true;
       $('xDenoms').innerHTML = S.boot.denoms.map(function (d, i) {
-        return '<tr><td>' + d.toLocaleString('id-ID') + '</td><td><input type="number" inputmode="numeric" min="0" data-x="' + i + '"></td><td class="tot" id="xv' + i + '">0</td></tr>';
+        var inp = function (col) { return '<td><input type="number" inputmode="numeric" min="0" data-' + col + '="' + i + '"></td>'; };
+        return '<tr><td>' + d.toLocaleString('id-ID') + '</td>' + inp('f') + inp('b') + '</tr>';
       }).join('');
       $('xDenoms').addEventListener('input', calcBox);
+      $('xOut').value = S.boot.floatOut == null ? 4000000 : S.boot.floatOut;
+      $('xOut').addEventListener('input', calcBox);
     }
     loadBox();
   }
@@ -490,28 +505,34 @@
       }
       $('xFloat').textContent = fmt(r.float); $('xSales').textContent = fmt(r.sales); $('xPeriod').textContent = r.period;
       $('xDays').innerHTML = r.days.map(function (d) { return d.label + ': ' + (d.n ? fmt(d.coh) + ' (' + d.n + ' kasir)' : '<span class="bad">belum ada cash count</span>'); }).join('<br>');
-      $('xExpected').textContent = fmt(r.expected);
       calcBox();
     }).catch(function (e) { msg(e); });
   }
-  function calcBox() {
-    var g = 0;
-    S.boot.denoms.forEach(function (d, i) { var n = Number(document.querySelector('input[data-x="' + i + '"]').value || 0); g += n * d; $('xv' + i).textContent = (n * d).toLocaleString('id-ID'); });
-    $('xCounted').textContent = fmt(g);
-    var el = $('xDiff');
-    if (!g || !XB) { el.textContent = '–'; el.className = ''; return g; }
-    var df = g - XB.expected;
-    el.textContent = df === 0 ? '✅ Cocok' : (df > 0 ? 'Lebih +' : 'Kurang −') + fmt(Math.abs(df)).replace('Rp ', 'Rp ');
+  function diffText(el, df, has) {
+    if (!has) { el.textContent = '–'; el.className = ''; return; }
+    el.textContent = df === 0 ? '✅ Cocok' : (df > 0 ? 'Lebih +' : 'Kurang −') + fmt(Math.abs(df));
     el.className = df === 0 ? 'good' : 'bad';
-    return g;
+  }
+  function calcBox() {
+    var f = 0, b = 0;
+    S.boot.denoms.forEach(function (d, i) { f += xIn('f', i) * d; b += xIn('b', i) * d; });
+    var out = Number($('xOut').value || 0);
+    $('xfT').textContent = f.toLocaleString('id-ID'); $('xbT').textContent = b.toLocaleString('id-ID');
+    $('xfCount').textContent = fmt(f); $('xbCount').textContent = fmt(b); $('xfTotal').textContent = fmt(f + out);
+    diffText($('xfDiff'), f + out - (XB ? XB.float : 0), f && XB);
+    diffText($('xbDiff'), b - (XB ? XB.sales : 0), b && XB);
+    return f + b;
   }
   function saveBox() {
     if (!calcBox()) { msg('Isi jumlah lembar/koin dulu.'); return; }
-    if (!confirm('Simpan hitungan uang?\nDihitung: ' + $('xCounted').textContent + '\nSelisih: ' + $('xDiff').textContent)) return;
-    var counts = S.boot.denoms.map(function (d, i) { return document.querySelector('input[data-x="' + i + '"]').value; });
+    if (!confirm('Simpan hitungan uang?\nFloat: ' + $('xfDiff').textContent + '\nBlue box: ' + $('xbDiff').textContent)) return;
+    var col = function (c) { return S.boot.denoms.map(function (d, i) { return document.querySelector('input[data-' + c + '="' + i + '"]').value; }); };
     $('xSave').disabled = true;
-    call('apiSaveCashBox', S.pin, { counts: counts, withLastWeek: withLastWeek(), note: $('xNote').value })
-      .then(function (r) { var df = r.diff; msg(r.message + '\nDihitung ' + fmt(r.counted) + ' · Seharusnya ' + fmt(r.expected) + ' · ' + (df === 0 ? 'Cocok' : (df > 0 ? 'Lebih ' : 'Kurang ') + fmt(Math.abs(df))), true); })
+    call('apiSaveCashBox', S.pin, { floatCounts: col('f'), boxCounts: col('b'), floatOut: $('xOut').value, withLastWeek: withLastWeek(), note: $('xNote').value })
+      .then(function (r) {
+        var t = function (df) { return df === '' ? '-' : df === 0 ? 'Cocok' : (df > 0 ? 'Lebih ' : 'Kurang ') + fmt(Math.abs(df)); };
+        msg(r.message + '\nFloat: ' + t(r.fDiff) + ' · Blue box: ' + t(r.bDiff), true);
+      })
       .catch(function (e) { msg(e); }).then(function () { $('xSave').disabled = false; });
   }
 
