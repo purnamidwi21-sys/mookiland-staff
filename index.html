@@ -74,6 +74,7 @@
   #xDenoms td:nth-child(3) input { width:96px; max-width:100%; padding:8px; text-align:center; }
   #boxTable th:nth-child(3) { text-align:center; } #boxTable tfoot td { padding-top:10px; text-align:center; }
   #boxTable { width:100%; border-collapse:collapse; } #boxTable th:nth-child(2) { text-align:center; }
+  #pDenoms td:nth-child(2) { text-align:center; } #pDenoms td:nth-child(2) input { width:96px; padding:8px; text-align:center; }
   .good { color:#1e7b34; } .bad { color:#c00000; }
 </style>
 </head>
@@ -100,6 +101,40 @@
   </section>
 
   <!-- Hitung uang (khusus pemilik, buka dengan ?role=uang): float + penjualan belum diambil Boss -->
+  <div class="card hidden" id="uTabs">
+    <div class="seg" id="uTab"><button data-v="box" class="on">💰 Hitung Uang</button><button data-v="petty">🧾 Petty Cash</button></div>
+  </div>
+
+  <!-- Petty cash (khusus pemilik) -->
+  <section id="petty" class="hidden">
+    <div class="card">
+      <div class="sum" style="font-size:17px"><span><b>Saldo petty cash</b></span><b id="pSaldo">–</b></div>
+      <div class="sum"><span>Pengeluaran bulan ini</span><b id="pMtd">–</b></div>
+      <div class="sum"><span>Top up bulan ini</span><b id="pTop">–</b></div>
+    </div>
+    <div class="card">
+      <div class="seg" id="pType"><button data-v="Pengeluaran" class="on">➖ Pengeluaran</button><button data-v="Top Up">➕ Top Up</button></div>
+      <label>Tanggal</label><input id="pDate" type="date">
+      <label id="pDescLabel">Keperluan</label><input id="pDesc" placeholder="mis. beli es batu, bensin motor">
+      <div id="pCatBox"><label>Kategori</label><select id="pCat"></select></div>
+      <label>Jumlah (Rp)</label><input id="pAmount" type="number" inputmode="numeric" min="0">
+      <div id="pNotaBox"><label>Foto nota (opsional)</label><input id="pPhoto" type="file" accept="image/*" capture="environment"></div>
+      <button class="big" id="pSave" onclick="savePetty()" style="margin-top:14px">Simpan</button>
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:4px">Hitung uang petty cash</div>
+      <table><tbody id="pDenoms"></tbody></table>
+      <div class="sum" style="border-top:1px solid var(--line);padding-top:8px"><span>Dihitung</span><b id="pCounted">Rp 0</b></div>
+      <div class="sum"><span>Seharusnya (saldo)</span><b id="pShould">–</b></div>
+      <div class="sum" style="font-size:17px"><span><b>Selisih</b></span><b id="pDiff">–</b></div>
+    </div>
+    <div class="card">
+      <div style="font-weight:600;margin-bottom:4px">Catatan terakhir</div>
+      <div id="pList" class="hint">–</div>
+      <p class="hint">Salah input? Hapus/ubah langsung di sheet <b>Petty Cash</b>.</p>
+    </div>
+  </section>
+
   <section id="box" class="hidden">
     <div class="card">
       <p class="hint" style="margin-top:0">Hitung setelah semua kasir tutup dan sudah input cash count. Isi jumlah lembar di dua kolom: <b>Float</b> (box hijau) dan <b>Blue box</b> (uang penjualan).</p>
@@ -279,7 +314,7 @@
   function start() {
     show('login', false); show('logout', true);
     $('title').textContent = S.boot.title + ({ barista: ' · Barista', cashier: ' · Kasir', manager: ' · Manager', uang: ' · Hitung Uang' }[S.role] || '');
-    if (S.role === 'uang') initBox();
+    if (S.role === 'uang') { show('uTabs', true); initBox(); }
     else if (S.role === 'barista' || S.role === 'manager') initBarista(); else initCashier();
   }
 
@@ -534,6 +569,70 @@
         msg(r.message + '\nFloat: ' + t(r.fDiff) + ' · Blue box: ' + t(r.bDiff), true);
       })
       .catch(function (e) { msg(e); }).then(function () { $('xSave').disabled = false; });
+  }
+
+  // ---- petty cash (khusus pemilik) ----
+  var PC = null, pInit = false;
+  seg('uTab', function (v) { show('box', v === 'box'); show('petty', v === 'petty'); msg(''); if (v === 'petty') initPetty(); });
+  seg('pType', function (v) { var top = v === 'Top Up'; show('pCatBox', !top); show('pNotaBox', !top); $('pDescLabel').textContent = top ? 'Keterangan (opsional)' : 'Keperluan'; });
+  function initPetty() {
+    if (!pInit) {
+      pInit = true;
+      $('pDate').value = S.boot.today;
+      $('pCat').innerHTML = (S.boot.pettyCats || []).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
+      $('pDenoms').innerHTML = S.boot.denoms.map(function (d, i) {
+        return '<tr><td>' + d.toLocaleString('id-ID') + '</td><td><input type="number" inputmode="numeric" min="0" data-p="' + i + '"></td><td class="tot" id="pv' + i + '">0</td></tr>';
+      }).join('');
+      $('pDenoms').addEventListener('input', calcPetty);
+    }
+    call('apiPetty', S.pin).then(showPetty).catch(function (e) { msg(e); });
+  }
+  function showPetty(r) {
+    PC = r;
+    $('pSaldo').textContent = fmt(r.saldo); $('pSaldo').className = r.saldo < 0 ? 'bad' : '';
+    $('pMtd').textContent = fmt(r.mtdOut); $('pTop').textContent = fmt(r.mtdTopup); $('pShould').textContent = fmt(r.saldo);
+    $('pList').innerHTML = r.recent.length ? r.recent.map(function (x) {
+      return '<div class="sum" style="font-size:13px;padding:3px 0"><span>' + x.date + ' · ' + (x.topup ? '<i>Top up</i> ' : '') + esc(x.desc) +
+        (x.cat ? ' <small>(' + esc(x.cat) + ')</small>' : '') + (x.nota ? ' <a href="' + esc(x.nota) + '" target="_blank">📎</a>' : '') +
+        '</span><b class="' + (x.topup ? 'good' : '') + '">' + (x.topup ? '+' : '−') + fmt(x.amount) + '</b></div>';
+    }).join('') : 'Belum ada catatan.';
+    calcPetty();
+  }
+  function calcPetty() {
+    var g = 0;
+    S.boot.denoms.forEach(function (d, i) { var n = Number(document.querySelector('input[data-p="' + i + '"]').value || 0); g += n * d; $('pv' + i).textContent = (n * d).toLocaleString('id-ID'); });
+    $('pCounted').textContent = fmt(g);
+    diffText($('pDiff'), g - (PC ? PC.saldo : 0), g && PC);
+  }
+  // perkecil foto sebelum dikirim (maks 1280 px, JPEG)
+  function readPhoto() {
+    var f = $('pPhoto').files && $('pPhoto').files[0];
+    if (!f) return Promise.resolve(null);
+    return new Promise(function (res, rej) {
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        var k = Math.min(1, 1280 / Math.max(img.width, img.height)), c = document.createElement('canvas');
+        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        res({ data: c.toDataURL('image/jpeg', 0.7).split(',')[1], mime: 'image/jpeg' });
+      };
+      img.onerror = function () { rej('Foto tidak bisa dibaca.'); };
+      img.src = url;
+    });
+  }
+  function savePetty() {
+    var type = segVal('pType'), amount = Number($('pAmount').value || 0), desc = $('pDesc').value.trim();
+    if (!amount) { msg('Isi jumlah.'); return; }
+    if (type === 'Pengeluaran' && !desc) { msg('Isi keperluan.'); return; }
+    if (!confirm('Simpan ' + type.toLowerCase() + ' ' + fmt(amount) + (desc ? ' — ' + desc : '') + '?')) return;
+    $('pSave').disabled = true;
+    readPhoto().then(function (photo) {
+      return call('apiSavePetty', S.pin, { date: $('pDate').value, type: type, desc: desc, cat: $('pCat').value, amount: amount, photo: photo });
+    }).then(function (r) {
+      msg(r.message + '\nSaldo petty cash: ' + fmt(r.saldo), true);
+      $('pDesc').value = ''; $('pAmount').value = ''; $('pPhoto').value = '';
+      showPetty(r);
+    }).catch(function (e) { msg(e); }).then(function () { $('pSave').disabled = false; });
   }
 
   // ---- auto login dalam sesi tab yang sama ----
