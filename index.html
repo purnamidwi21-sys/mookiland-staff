@@ -121,6 +121,12 @@
       <div id="pNotaBox"><label>Foto nota (opsional)</label><input id="pPhoto" type="file" accept="image/*" capture="environment"></div>
       <button class="big" id="pSave" onclick="savePetty()" style="margin-top:14px">Simpan</button>
     </div>
+    <div class="card hidden" id="pXlsCard">
+      <div style="font-weight:600;margin-bottom:4px">📋 Belum dicatat di Excel Boss (<span id="pXlsN">0</span>)</div>
+      <p class="hint" style="margin-top:0">Klik Salin → buka Excel petty cash → klik sel kolom <b>Number</b> di baris kosong pertama → tempel (Ctrl+V).</p>
+      <div style="overflow-x:auto"><table style="font-size:12px"><thead><tr><th>No</th><th>Date</th><th>Credit</th><th>Debit</th><th>Operation</th><th>Available</th></tr></thead><tbody id="pXls"></tbody></table></div>
+      <div class="row2" style="margin-top:10px"><button class="big" style="margin:0" onclick="copyXls()">📋 Salin</button><button class="big" style="margin:0" onclick="markXls()">✅ Sudah ditempel</button></div>
+    </div>
     <div class="card">
       <div style="font-weight:600;margin-bottom:4px">Hitung uang petty cash</div>
       <table><tbody id="pDenoms"></tbody></table>
@@ -596,7 +602,26 @@
         (x.cat ? ' <small>(' + esc(x.cat) + ')</small>' : '') + (x.nota ? ' <a href="' + esc(x.nota) + '" target="_blank">📎</a>' : '') +
         '</span><b class="' + (x.topup ? 'good' : '') + '">' + (x.topup ? '+' : '−') + fmt(x.amount) + '</b></div>';
     }).join('') : 'Belum ada catatan.';
+    show('pXlsCard', r.pending && r.pending.length);
+    $('pXlsN').textContent = (r.pending || []).length;
+    var n = function (v) { return v === '' ? '' : Number(v).toLocaleString('id-ID'); };
+    $('pXls').innerHTML = (r.pending || []).map(function (x) {
+      return '<tr><td>' + x.no + '</td><td>' + x.date + '</td><td class="tot">' + n(x.credit) + '</td><td class="tot">' + n(x.debit) + '</td><td>' + esc(x.op) + '</td><td class="tot">' + n(x.bal) + '</td></tr>';
+    }).join('');
     calcPetty();
+  }
+  function copyXls() {
+    var tsv = (PC.pending || []).map(function (x) { return [x.no, x.date, x.credit, x.debit, x.op.replace(/[\t\n]/g, ' '), x.bal].join('\t'); }).join('\n');
+    var done = function () { msg('Tersalin ✅ Sekarang tempel di Excel, lalu klik "Sudah ditempel".', true); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, function () { fallbackCopy(tsv); done(); });
+    else { fallbackCopy(tsv); done(); }
+  }
+  function fallbackCopy(t) { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); }
+  function markXls() {
+    if (!PC || !PC.pending.length) return;
+    if (!confirm('Tandai ' + PC.pending.length + ' baris sudah ditempel di Excel Boss?')) return;
+    call('apiPettyMarkExcel', S.pin, PC.pending.map(function (x) { return x.no; }))
+      .then(function (r) { msg(r.message, true); showPetty(r); }).catch(function (e) { msg(e); });
   }
   function calcPetty() {
     var g = 0;
