@@ -263,17 +263,6 @@
     <button class="big" id="cSave" onclick="saveCash()">Simpan Cash Count</button>
     <div class="card hidden" id="cCheck" style="margin-top:12px"></div>
 
-    <div class="card" style="margin-top:12px">
-      <div style="font-weight:700;font-size:16px">💳 Settlement EDC <small class="hint">(diisi kasir sore, setelah settlement)</small></div>
-      <p class="hint" style="margin-top:4px">Isi <b>GRAND TOTAL</b> dari slip settlement mesin EDC POS ini. Kartu = Debit + Kredit (Visa/Master), QRIS = semua QRIS.</p>
-      <div class="row2">
-        <div><label>Total Kartu (Rp)</label><input id="eCard" type="number" inputmode="numeric" min="0"></div>
-        <div><label>Total QRIS (Rp)</label><input id="eQris" type="number" inputmode="numeric" min="0"></div>
-      </div>
-      <label>Catatan (opsional)</label><input id="eNote" placeholder="mis. refund salah tender QRIS 450.000">
-      <button class="big" id="eSave" onclick="saveEdc()" style="margin-top:12px">Simpan Settlement</button>
-      <div class="hidden" id="eCheck" style="margin-top:10px"></div>
-    </div>
   </section>
 </main>
 
