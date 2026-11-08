@@ -262,6 +262,18 @@
     </div>
     <button class="big" id="cSave" onclick="saveCash()">Simpan Cash Count</button>
     <div class="card hidden" id="cCheck" style="margin-top:12px"></div>
+
+    <div class="card" style="margin-top:12px">
+      <div style="font-weight:700;font-size:16px">💳 Settlement EDC <small class="hint">(diisi kasir sore, setelah settlement)</small></div>
+      <p class="hint" style="margin-top:4px">Isi <b>GRAND TOTAL</b> dari slip settlement mesin EDC POS ini. Kartu = Debit + Kredit (Visa/Master), QRIS = semua QRIS.</p>
+      <div class="row2">
+        <div><label>Total Kartu (Rp)</label><input id="eCard" type="number" inputmode="numeric" min="0"></div>
+        <div><label>Total QRIS (Rp)</label><input id="eQris" type="number" inputmode="numeric" min="0"></div>
+      </div>
+      <label>Catatan (opsional)</label><input id="eNote" placeholder="mis. refund salah tender QRIS 450.000">
+      <button class="big" id="eSave" onclick="saveEdc()" style="margin-top:12px">Simpan Settlement</button>
+      <div class="hidden" id="eCheck" style="margin-top:10px"></div>
+    </div>
   </section>
 </main>
 
@@ -670,6 +682,28 @@
       $('pDesc').value = ''; $('pAmount').value = ''; $('pPhoto').value = '';
       showPetty(r);
     }).catch(function (e) { msg(e); }).then(function () { $('pSave').disabled = false; });
+  }
+
+  // ---- settlement EDC (kasir sore) ----
+  function saveEdc() {
+    var name = $('cName').value, pos = segVal('cPos');
+    if (!name) { msg('Pilih nama kasir.'); return; }
+    if (!pos) { msg('Pilih POS.'); return; }
+    var card = $('eCard').value, qris = $('eQris').value;
+    if (card === '' && qris === '') { msg('Isi total settlement Kartu dan/atau QRIS.'); return; }
+    if (!confirm('Simpan settlement ' + pos + '?\nKartu: ' + fmt(Number(card || 0)) + '\nQRIS: ' + fmt(Number(qris || 0)))) return;
+    $('eSave').disabled = true;
+    call('apiSaveEdc', S.pin, { date: $('cDate').value, pos: pos, cashier: name, card: card, qris: qris, note: $('eNote').value })
+      .then(function (r) {
+        msg(r.message, true);
+        var c = r.check, box = $('eCheck'); show('eCheck', true);
+        if (!c) { box.innerHTML = '<p class="hint">⏳ Data Raptor tanggal ini belum diimport. Nanti dicek otomatis di report.</p>'; return; }
+        var line = function (l, a, b, d) {
+          var ok = d == null ? '' : Math.abs(d) < 100 ? ' <b class="good">✓ cocok</b>' : ' <b class="bad">selisih ' + (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + '</b>';
+          return '<div style="margin:6px 0"><b>' + l + '</b><br><span class="hint">Raptor ' + fmt(a) + ' · EDC ' + (b == null ? '–' : fmt(b)) + '</span>' + ok + '</div>';
+        };
+        box.innerHTML = '<b>Cek dengan Raptor</b>' + line('Kartu', c.rCard, c.eCard, c.dCard) + line('QRIS', c.rQris, c.eQris, c.dQris);
+      }).catch(function (e) { msg(e); }).then(function () { $('eSave').disabled = false; });
   }
 
   // ---- auto login dalam sesi tab yang sama ----
